@@ -89,19 +89,32 @@ are an artifact of `eps`/`min_samples` and could renumber silently. Keep the ass
   Southern Valleys (contiguous, no physical gap). Any per-region claim inherits that.
 - EPSG:4326 for storage/interoperability; **EPSG:2193 (NZTM2000) for every area and distance**.
 
-## Open question blocking the case study
+## Two results that constrain what may be claimed
 
-Whether the ~7,999 ha of "retired" land is genuine vine removal or re-digitisation boundary shift
-is **unresolved**. Until the `digitisation-forensics` agent settles it, churn must not be presented
-as vines pulled out. See `PLAN_OF_ACTION.md`.
+**Retired land is now classified, as a band and not a number.** Of 7,999 ha gross retired, ~6,201 ha
+(77.5%) is likely genuine removal, 877 ha (11.0%) likely re-digitisation, 920 ha ambiguous — at a
+10 m erosion threshold. That threshold does a lot of work: 86% genuine at 5 m, 38% at 40 m, and it
+never stabilises. Always quote the band and the threshold. The 2011–12 contraction survives as
+real (862 ha genuine after removing 382 ha of noise).
+
+**Carrying capacity is NOT identified.** Post-2005 fits give K = 42,470 (logistic) / 45,563
+(Gompertz) ha, but the 95% intervals reach 242,821 / 259,675 ha. Never quote a capacity figure or a
+"years to saturation" projection. An earlier version of this analysis concluded the saturation model
+was *misspecified* — that was wrong, an artefact of including the digitisation-distorted 2000/2002/
+2005 surveys, and it was caught in review. Do not reintroduce it.
+
+Also barred by the data: dating the growth resumption to 2018 (it resumed inside the unobserved
+2013–2018 gap), counting discrete regimes (asserted, never statistically detected), and any causal
+claim about the 2011–12 contraction (no price or weather variable exists).
 
 ## Verification
 
 ```bash
-python3 tests/test_invariants.py     # standalone; pytest optional
+python3 tests/test_invariants.py     # pipeline outputs; standalone, pytest optional
+python3 tests/test_repo_hygiene.py   # the repo itself, across full history
 ```
 
-19 deterministic checks. **Run after touching any transform or overlay logic** — the
+20 deterministic checks in the invariant suite. **Run after touching any transform or overlay logic** — the
 area-conservation and reconciliation checks are the only thing between a CRS/set-algebra mistake
 and a wrong published number. Checks whose inputs don't exist yet (Tableau exports,
 `model_fits.json`) skip rather than fail. It found two real bugs on its first run.

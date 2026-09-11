@@ -36,3 +36,38 @@ create table if not exists subregion_summary (
     loaded_at       timestamptz not null default now(),
     primary key (survey_year, subregion)
 );
+
+-- Step-05 outputs: the overlay-derived series. `footprint_by_year` is the
+-- dissolved area per survey (the honest area measure); `transitions` is the
+-- set-difference of consecutive surveys.
+--
+-- NOTE on retired_ha: this is area present in one survey and absent in the
+-- next. It is NOT confirmed vine removal -- part of it is the same ground
+-- re-digitised at a different boundary. The split is a modelling choice and
+-- lives in data/processed/stats/retirement_classification.csv, deliberately
+-- not in this table.
+create table if not exists footprint_by_year (
+    survey_year    int primary key,
+    footprint_ha   numeric not null,
+    naive_sum_ha   numeric not null,
+    overlap_ha     numeric,
+    overlap_pct    numeric,
+    loaded_at      timestamptz not null default now()
+);
+
+create table if not exists transitions (
+    prior_survey_year      int not null,
+    survey_year            int not null,
+    years_in_interval      int not null,
+    footprint_prior_ha     numeric not null,
+    footprint_ha           numeric not null,
+    new_ha                 numeric not null,
+    retired_ha             numeric not null,
+    persisting_ha          numeric not null,
+    net_change_ha          numeric not null,
+    new_ha_per_year        numeric,
+    retired_ha_per_year    numeric,
+    annualised_pct_growth  numeric,
+    loaded_at              timestamptz not null default now(),
+    primary key (prior_survey_year, survey_year)
+);

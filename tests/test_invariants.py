@@ -249,22 +249,52 @@ def test_tableau_exports_are_within_size_budget():
 
 
 def test_simplified_geometry_preserves_area():
-    """Simplification is for file size; it must not move the numbers."""
-    geo = config.TABLEAU_DIR / "parcels.geojson"
-    need(geo, config.FOOTPRINT_BY_YEAR)
+    """
+    Simplification is for file size; it must not move the numbers.
+
+    Checks the snapshot layers, which are exported per year rather than as one
+    combined parcels file -- a full all-years layer is 36 MB even simplified, so
+    the export is deliberately split into purpose-built layers.
+    """
+    need(config.FOOTPRINT_BY_YEAR)
     import geopandas as gpd
 
-    simplified = gpd.read_file(geo).to_crs(epsg=config.CRS_NZTM)
-    if "survey_year" not in simplified.columns:
-        skip("parcels.geojson has no survey_year to compare against")
-    got = simplified[simplified["survey_year"] == 2025].geometry.area.sum() / 10_000
-    expected = pd.read_csv(config.FOOTPRINT_BY_YEAR).set_index("survey_year").loc[
-        2025, "naive_sum_ha"
-    ]
-    loss_pct = abs(got - expected) / expected * 100
-    assert loss_pct < MAX_SIMPLIFY_AREA_LOSS_PCT, (
-        f"simplification moved 2025 area by {loss_pct:.2f}% "
-        f"({got:.1f} vs {expected:.1f} ha) -- reduce the tolerance"
+    expected_by_year = pd.read_csv(config.FOOTPRINT_BY_YEAR).set_index("survey_year")
+    checked = []
+    for year in (2000, 2025):
+        geo = config.TABLEAU_DIR / f"parcels_{year}.geojson"
+        if not geo.exists():
+            continue
+        got = gpd.read_file(geo).to_crs(epsg=config.CRS_NZTM).geometry.area.sum() / 10_000
+        expected = expected_by_year.loc[year, "naive_sum_ha"]
+        loss_pct = abs(got - expected) / expected * 100
+        assert loss_pct < MAX_SIMPLIFY_AREA_LOSS_PCT, (
+            f"simplification moved {year} area by {loss_pct:.2f}% "
+            f"({got:.1f} vs {expected:.1f} ha) -- reduce the tolerance"
+        )
+        checked.append(year)
+
+    if not checked:
+        skip("no parcel snapshot layers exported yet")
+
+
+def test_new_plantings_export_retains_its_area_share():
+    """
+    The map layer drops sub-hectare pieces for file size. That is fine only
+    because they carry almost no area -- verify the dropped share stays small,
+    so the map doesn't quietly stop matching the numbers beside it.
+    """
+    geo = config.TABLEAU_DIR / "new_plantings.geojson"
+    need(geo, config.TRANSITIONS)
+    import geopandas as gpd
+
+    exported = gpd.read_file(geo).to_crs(epsg=config.CRS_NZTM).geometry.area.sum() / 10_000
+    total_new = pd.read_csv(config.TRANSITIONS)["new_ha"].sum()
+    retained = exported / total_new * 100
+    assert retained > 90.0, (
+        f"new_plantings.geojson retains only {retained:.1f}% of total new area "
+        f"({exported:,.0f} of {total_new:,.0f} ha) -- the size filter is too "
+        f"aggressive for the map to represent the figures"
     )
 
 
@@ -303,15 +333,42 @@ PUBLICATION_DOCS = ["REPORT.md"]
 
 
 def _headline_figures() -> dict[str, float]:
+    """
+    Every figure a document is allowed to quote without the suite noticing drift.
+
+    Deliberately covers more than the churn totals: REPORT.md quotes carrying
+    capacity estimates, their interval bounds, and the retirement bands, and
+    those are exactly the numbers most likely to move when a model or threshold
+    is retuned. A claim that the suite fact-checks the report is only honest if
+    the suite actually reaches them.
+    """
     t = pd.read_csv(config.TRANSITIONS)
     fp = pd.read_csv(config.FOOTPRINT_BY_YEAR).set_index("survey_year")
-    return {
+    figures = {
         "gross new planted (ha)": t["new_ha"].sum(),
         "gross retired (ha)": t["retired_ha"].sum(),
         "net change (ha)": t["net_change_ha"].sum(),
         "2025 footprint (ha)": fp.loc[2025, "footprint_ha"],
         "churn ratio": t["new_ha"].sum() / t["net_change_ha"].sum(),
     }
+
+    if config.MODEL_FITS.exists():
+        fits = json.loads(config.MODEL_FITS.read_text())
+        for name, f in fits.get("primary", {}).items():
+            if not isinstance(f, dict) or not f.get("converged"):
+                continue
+            figures[f"{name} K (ha)"] = f["K_ha"]
+            ci = f.get("K_ci95_ha") or f.get("K_ci95_withheld", {}).get("computed")
+            if ci:
+                figures[f"{name} K upper bound (ha)"] = ci[1]
+
+    classification = config.STATS_DIR / "retirement_classification.csv"
+    if classification.exists():
+        band = pd.read_csv(classification)
+        figures["likely genuine removal (ha)"] = band["likely_genuine_removal"].sum()
+        figures["likely measurement change (ha)"] = band["likely_measurement_change"].sum()
+
+    return figures
 
 
 def _formattings(value: float) -> set[str]:
@@ -325,6 +382,21 @@ def _formattings(value: float) -> set[str]:
     return {s for s in out if s}
 
 
+# Which figures each document is on the hook for. Scope matters: REPORT.md is
+# the publication surface and must carry every headline number correctly, while
+# PLAN_OF_ACTION.md is a working log that legitimately never discusses the
+# saturation fits. Demanding every figure from every document would force
+# irrelevant numbers into a doc just to satisfy a test.
+CORE_FIGURES = {
+    "gross new planted (ha)", "gross retired (ha)", "net change (ha)",
+    "2025 footprint (ha)", "churn ratio",
+}
+DOC_SCOPE = {
+    "REPORT.md": None,               # None == every figure
+    "PLAN_OF_ACTION.md": CORE_FIGURES,
+}
+
+
 def test_documents_quote_the_computed_figures():
     need(config.TRANSITIONS, config.FOOTPRINT_BY_YEAR)
     figures = _headline_figures()
@@ -336,8 +408,10 @@ def test_documents_quote_the_computed_figures():
     problems = []
     for doc in present:
         text = (config.BASE_DIR / doc).read_text()
-        # strip markdown table pipes/spacing noise that can split a number
+        scope = DOC_SCOPE.get(doc, CORE_FIGURES)
         for label, value in figures.items():
+            if scope is not None and label not in scope:
+                continue
             if not any(f in text for f in _formattings(value)):
                 problems.append(
                     f"{doc} does not quote {label} correctly "

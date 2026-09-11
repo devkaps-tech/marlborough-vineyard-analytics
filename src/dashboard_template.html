@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Marlborough Vineyard Survey Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* ---------------------------------------------------------------
+   Survey-sheet palette. Cool paper, drafting-blue accent, chart
+   series held to the validated dataviz slots so page chrome never
+   competes with data. Every token defined here in bare :root first.
+   --------------------------------------------------------------- */
+:root{
+  color-scheme: light;
+  --ground:#f6f7f4;
+  --surface:#fcfcfb;
+  --surface-2:#eef0ea;
+  --ink:#171912;
+  --ink-2:#52514e;
+  --ink-3:#7d7c74;
+  --rule:#dfe1d9;
+  --rule-strong:#c4c7bb;
+  --accent:#1f4f7a;
+  --accent-soft:#e4ecf4;
+  --s1:#2a78d6;  /* blue   */
+  --s2:#eb6834;  /* orange */
+  --s3:#1baf7a;  /* aqua   */
+  --neutral:#b9b8b3;
+  --pos:#2a78d6;
+  --neg:#d03b3b;
+  --warn-bg:#fdf3e7;
+  --warn-ink:#8a4b12;
+  --warn-rule:#e8c9a0;
+  --shadow:0 1px 2px rgba(23,25,18,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --ground:#141513;
+    --surface:#1a1a19;
+    --surface-2:#22231f;
+    --ink:#f1f2ec;
+    --ink-2:#c3c2b7;
+    --ink-3:#8f8e85;
+    --rule:#2f312b;
+    --rule-strong:#43453d;
+    --accent:#7fb2dd;
+    --accent-soft:#1d2a35;
+    --s1:#3987e5;
+    --s2:#d95926;
+    --s3:#199e70;
+    --neutral:#6d6c66;
+    --pos:#3987e5;
+    --neg:#e06a6a;
+    --warn-bg:#2a2118;
+    --warn-ink:#e9b478;
+    --warn-rule:#4d3a23;
+    --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --ground:#141513;
+  --surface:#1a1a19;
+  --surface-2:#22231f;
+  --ink:#f1f2ec;
+  --ink-2:#c3c2b7;
+  --ink-3:#8f8e85;
+  --rule:#2f312b;
+  --rule-strong:#43453d;
+  --accent:#7fb2dd;
+  --accent-soft:#1d2a35;
+  --s1:#3987e5;
+  --s2:#d95926;
+  --s3:#199e70;
+  --neutral:#6d6c66;
+  --pos:#3987e5;
+  --neg:#e06a6a;
+  --warn-bg:#2a2118;
+  --warn-ink:#e9b478;
+  --warn-rule:#4d3a23;
+  --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--ground);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif;
+  text-wrap:balance;margin:0;letter-spacing:-.005em}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+.num{font-variant-numeric:tabular-nums}
+
+/* --- masthead ------------------------------------------------- */
+.sheet-head{
+  border-bottom:1px solid var(--rule-strong);background:var(--surface);
+}
+.wrap{max-width:1240px;margin:0 auto;padding:0 28px}
+.masthead{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-end;
+  justify-content:space-between;padding:30px 0 22px}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11px;
+  letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);margin-bottom:9px}
+h1{font-size:clamp(26px,3.4vw,38px);font-weight:700;line-height:1.08}
+.sub{color:var(--ink-2);max-width:64ch;margin-top:10px;font-size:14.5px}
+.coords{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--ink-3);
+  text-align:right;line-height:1.75;white-space:nowrap}
+
+/* --- KPI strip: a measured row, not a row of cards ------------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));
+  gap:0;border-top:1px solid var(--rule);background:var(--surface)}
+.kpi{padding:16px 20px 18px;border-right:1px solid var(--rule)}
+.kpi:last-child{border-right:0}
+.kpi .k-label{font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+.kpi .k-val{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:700;
+  font-size:27px;line-height:1.15;margin-top:5px;font-variant-numeric:tabular-nums}
+.kpi .k-note{font-size:12px;color:var(--ink-2);margin-top:3px}
+.kpi.flagged .k-val{color:var(--warn-ink)}
+
+/* --- controls -------------------------------------------------- */
+.controls{position:sticky;top:0;z-index:20;background:var(--surface);
+  border-bottom:1px solid var(--rule-strong);box-shadow:var(--shadow)}
+.controls-inner{display:flex;flex-wrap:wrap;gap:20px;align-items:center;padding:11px 0}
+.ctl{display:flex;align-items:center;gap:9px}
+.ctl label{font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3)}
+select,button{font:inherit;font-size:13px;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--rule-strong);
+  border-radius:3px;padding:5px 9px;cursor:pointer}
+select:focus-visible,button:focus-visible,.spec-toggle:focus-visible{
+  outline:2px solid var(--accent);outline-offset:2px}
+button.toggle[aria-pressed="true"]{background:var(--accent);color:#fff;
+  border-color:var(--accent)}
+.range-val{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink-2)}
+input[type=range]{accent-color:var(--accent);width:150px}
+
+/* --- worksheet rows -------------------------------------------- */
+main{padding:34px 0 70px}
+.ws{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);
+  gap:26px;align-items:start;padding:26px 0;border-top:1px solid var(--rule)}
+.ws:first-of-type{border-top:0}
+@media(max-width:940px){.ws{grid-template-columns:1fr}}
+
+.ws-id{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  letter-spacing:.1em;color:var(--accent)}
+.ws h2{font-size:20px;font-weight:600;margin:5px 0 6px}
+.ws .caption{font-size:13.5px;color:var(--ink-2);max-width:66ch;margin-bottom:16px}
+.chart-frame{background:var(--surface);border:1px solid var(--rule);
+  border-radius:4px;padding:14px 14px 8px;overflow-x:auto}
+svg{display:block;max-width:100%;height:auto}
+.legend{display:flex;flex-wrap:wrap;gap:16px;padding:10px 2px 2px;font-size:12.5px;
+  color:var(--ink-2)}
+.swatch{width:11px;height:11px;border-radius:2px;display:inline-block;
+  margin-right:6px;vertical-align:-1px}
+
+/* --- build spec: a different object, so a different treatment --- */
+.spec{background:var(--surface-2);border:1px solid var(--rule);border-radius:4px}
+.spec-toggle{width:100%;display:flex;justify-content:space-between;align-items:center;
+  gap:12px;background:none;border:0;border-radius:4px;padding:12px 14px;text-align:left;
+  font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;font-size:14px}
+.spec-toggle .chev{color:var(--ink-3);font-size:12px;transition:transform .18s}
+.spec[open-state="1"] .chev{transform:rotate(90deg)}
+.spec-body{padding:0 14px 14px;font-size:13px}
+.spec-row{display:grid;grid-template-columns:86px 1fr;gap:10px;padding:6px 0;
+  border-top:1px dotted var(--rule-strong)}
+.spec-row dt{font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);padding-top:3px}
+.spec-row dd{margin:0;color:var(--ink)}
+.pill{display:inline-block;font-family:"IBM Plex Mono",monospace;font-size:11.5px;
+  background:var(--accent-soft);color:var(--accent);border:1px solid var(--rule-strong);
+  border-radius:11px;padding:1px 9px;margin:2px 4px 2px 0;white-space:nowrap}
+.pill.dim{background:var(--surface);color:var(--ink-2)}
+pre.calc{font-family:"IBM Plex Mono",monospace;font-size:11.5px;line-height:1.6;
+  background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+  padding:9px 11px;margin:6px 0 0;overflow-x:auto;color:var(--ink)}
+.gotcha{margin-top:11px;background:var(--warn-bg);border:1px solid var(--warn-rule);
+  border-left-width:3px;border-radius:3px;padding:9px 11px;font-size:12.5px;
+  color:var(--warn-ink)}
+.gotcha b{font-weight:600}
+
+/* --- map ------------------------------------------------------- */
+.mapwrap{background:var(--surface);border:1px solid var(--rule);border-radius:4px;
+  padding:10px;position:relative}
+.map-note{font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-3);
+  padding:8px 2px 0}
+#mapsvg path{stroke:var(--surface);stroke-width:.35;vector-effect:non-scaling-stroke}
+
+/* --- tooltip --------------------------------------------------- */
+#tip{position:fixed;z-index:60;pointer-events:none;opacity:0;transition:opacity .1s;
+  background:var(--surface);color:var(--ink);border:1px solid var(--rule-strong);
+  border-radius:4px;box-shadow:0 4px 14px rgba(0,0,0,.16);padding:8px 11px;
+  font-size:12.5px;max-width:280px}
+#tip .t-head{font-family:"IBM Plex Sans Condensed",sans-serif;font-weight:600;
+  margin-bottom:3px}
+#tip .t-row{display:flex;justify-content:space-between;gap:16px;
+  font-variant-numeric:tabular-nums}
+#tip .t-row span:last-child{font-family:"IBM Plex Mono",monospace}
+
+/* --- data table ------------------------------------------------ */
+.tablewrap{margin-top:12px;overflow-x:auto;max-height:310px;overflow-y:auto;
+  border:1px solid var(--rule);border-radius:3px}
+table{border-collapse:collapse;width:100%;font-size:12.5px;
+  font-variant-numeric:tabular-nums}
+th,td{padding:5px 10px;text-align:right;border-bottom:1px solid var(--rule);
+  white-space:nowrap}
+th{position:sticky;top:0;background:var(--surface-2);font-weight:600;
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-3);text-align:right}
+th:first-child,td:first-child{text-align:left}
+tbody tr:hover{background:var(--accent-soft)}
+
+/* --- footer / caveats ------------------------------------------ */
+.caveats{border-top:2px solid var(--rule-strong);background:var(--surface);
+  padding:30px 0 44px;margin-top:38px}
+.caveats h2{font-size:18px;margin-bottom:14px}
+.cav-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:20px}
+.cav h3{font-size:13px;font-weight:600;margin-bottom:5px;color:var(--ink)}
+.cav p{margin:0;font-size:13px;color:var(--ink-2)}
+.donot{margin-top:18px;background:var(--warn-bg);border:1px solid var(--warn-rule);
+  border-left-width:3px;border-radius:3px;padding:12px 14px}
+.donot h3{color:var(--warn-ink);font-size:13px;margin:0 0 6px}
+.donot ul{margin:0;padding-left:18px;font-size:13px;color:var(--warn-ink)}
+.donot li{margin:3px 0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="sheet-head">
+  <div class="wrap">
+    <div class="masthead">
+      <div>
+        <div class="eyebrow">Marlborough District Council aerial survey &middot; data.govt.nz</div>
+        <h1>Twenty-five years of vineyard expansion</h1>
+        <p class="sub">A working replica of the Tableau Public dashboard, with the build
+          recipe for each worksheet beside it. Every figure is generated from the pipeline
+          outputs in <span class="mono">data/tableau/</span> — nothing here is typed by hand.</p>
+      </div>
+      <div class="coords" id="coords"></div>
+    </div>
+  </div>
+  <div class="wrap"><div class="kpis" id="kpis"></div></div>
+</div>
+
+<div class="controls">
+  <div class="wrap controls-inner">
+    <div class="ctl">
+      <label for="fromYear">From survey</label>
+      <select id="fromYear"></select>
+    </div>
+    <div class="ctl">
+      <label for="toYear">To survey</label>
+      <select id="toYear"></select>
+    </div>
+    <div class="ctl">
+      <label for="subregion">Sub-region</label>
+      <select id="subregion"></select>
+    </div>
+    <div class="ctl">
+      <button class="toggle" id="tableToggle" aria-pressed="false">Show data tables</button>
+      <button class="toggle" id="specToggle" aria-pressed="true">Tableau specs</button>
+      <button id="themeToggle" title="Switch theme">Theme</button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap" id="sheets"></main>
+
+<section class="caveats">
+  <div class="wrap">
+    <h2>What this data can and cannot support</h2>
+    <div class="cav-grid" id="caveats"></div>
+    <div class="donot" id="donot"></div>
+  </div>
+</section>
+
+<div id="tip" role="status" aria-live="polite"></div>
+
+<script id="payload" type="application/json">__PAYLOAD__</script>
+<script>
+(function(){
+"use strict";
+const PAYLOAD = JSON.parse(document.getElementById("payload").textContent);
+const D = PAYLOAD.data, MAP = PAYLOAD.map;
+const css = k => getComputedStyle(document.documentElement).getPropertyValue(k).trim();
+
+const fmt  = (n,d=0)=> n===null||n===undefined||isNaN(n) ? "—"
+                      : Number(n).toLocaleString("en-NZ",{minimumFractionDigits:d,maximumFractionDigits:d});
+const ha   = (n,d=0)=> fmt(n,d)+" ha";
+const pct  = (n,d=1)=> n===null||n===undefined||isNaN(n) ? "—" : Number(n).toFixed(d)+"%";
+
+/* ---------- state ---------- */
+const YEARS = D.yearly.map(r=>r.survey_year);
+const SUBS  = [...new Set(D.subregion.map(r=>r.subregion))];
+const state = { from: YEARS[0], to: YEARS[YEARS.length-1], sub: "__all__",
+                tables:false, specs:true };
+
+/* ---------- tooltip ---------- */
+const tip = document.getElementById("tip");
+function showTip(evt, head, rows){
+  tip.innerHTML = '<div class="t-head">'+head+'</div>' +
+    rows.map(r=>'<div class="t-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>').join("");
+  tip.style.opacity = 1;
+  const pad=14, w=tip.offsetWidth, h=tip.offsetHeight;
+  let x = evt.clientX+pad, y = evt.clientY+pad;
+  if(x+w > innerWidth-8)  x = evt.clientX-w-pad;
+  if(y+h > innerHeight-8) y = evt.clientY-h-pad;
+  tip.style.left = x+"px"; tip.style.top = y+"px";
+}
+const hideTip = ()=> tip.style.opacity = 0;
+
+/* ---------- svg helpers ---------- */
+const NS="http://www.w3.org/2000/svg";
+function el(tag, attrs){ const n=document.createElementNS(NS,tag);
+  for(const k in attrs) n.setAttribute(k, attrs[k]); return n; }
+function svgRoot(w,h){ const s=el("svg",{viewBox:`0 0 ${w} ${h}`,width:"100%",
+  role:"img"}); return s; }
+function axisText(s,x,y,txt,anchor,size){
+  const t=el("text",{x,y,"text-anchor":anchor||"middle","font-size":size||11,
+    fill:css("--ink-3"),"font-family":"IBM Plex Mono, monospace"});
+  t.textContent=txt; s.appendChild(t); return t;
+}
+function gridline(s,x1,y1,x2,y2){
+  s.appendChild(el("line",{x1,y1,x2,y2,stroke:css("--rule"),"stroke-width":1}));
+}
+
+/* ---------- filtering ---------- */
+const inRange = y => y>=state.from && y<=state.to;
+function yearlyRows(){ return D.yearly.filter(r=>inRange(r.survey_year)); }
+function transRows(){ return D.transitions.filter(r=>inRange(r.survey_year)); }
+function subRows(){
+  let r = D.subregion.filter(x=>inRange(x.survey_year));
+  if(state.sub!=="__all__") r = r.filter(x=>x.subregion===state.sub);
+  return r;
+}
+
+/* =====================================================================
+   S2 — footprint with saturation fits
+   ===================================================================== */
+function chartFootprint(host){
+  const rows = yearlyRows(); host.innerHTML="";
+  if(!rows.length) return;
+  const W=720,H=340,m={t:18,r:20,b:34,l:62};
+  const s=svgRoot(W,H);
+  s.setAttribute("aria-label","Planted vineyard footprint by survey year");
+  const xs=rows.map(r=>r.survey_year);
+  const x0=Math.min(...xs), x1=Math.max(...xs);
+  const ymax=Math.max(...rows.map(r=>r.footprint_ha))*1.12;
+  const X=v=> m.l + (v-x0)/((x1-x0)||1)*(W-m.l-m.r);
+  const Y=v=> H-m.b - v/ymax*(H-m.t-m.b);
+
+  for(let i=0;i<=4;i++){ const v=ymax*i/4;
+    gridline(s,m.l,Y(v),W-m.r,Y(v));
+    axisText(s,m.l-9,Y(v)+4,fmt(v),"end"); }
+  xs.forEach(v=>{ if(xs.length<9 || v%5===0 || v===x1)
+    axisText(s,X(v),H-m.b+18,v); });
+
+  // fitted curves, drawn only where the fit applies (post-2005)
+  const fits=D.fits.primary, t0=D.fits.time_origin;
+  const cols={logistic:css("--s2"),gompertz:css("--s3")};
+  Object.keys(fits).forEach(name=>{
+    const f=fits[name]; if(!f || f.K===null) return;
+    const p=D.fits.params&&D.fits.params[name];
+    if(!p) return;
+    let d="";
+    for(let yr=Math.max(2006,x0); yr<=x1; yr+=0.5){
+      const t=yr-t0;
+      const v = name==="logistic"
+        ? p.K/(1+Math.exp(-p.r*(t-p.t_mid)))
+        : p.K*Math.exp(-Math.exp(-p.b*(t-p.t_mid)));
+      d += (d?"L":"M")+X(yr)+","+Y(v);
+    }
+    if(d) s.appendChild(el("path",{d,fill:"none",stroke:cols[name]||css("--s2"),
+      "stroke-width":1.6,"stroke-dasharray":name==="logistic"?"5 4":"2 3"}));
+  });
+
+  // observed series
+  let dpath="";
+  rows.forEach(r=> dpath += (dpath?"L":"M")+X(r.survey_year)+","+Y(r.footprint_ha));
+  s.appendChild(el("path",{d:dpath,fill:"none",stroke:css("--s1"),"stroke-width":2,
+    "stroke-linejoin":"round"}));
+  rows.forEach(r=>{
+    const c=el("circle",{cx:X(r.survey_year),cy:Y(r.footprint_ha),r:4.5,
+      fill:css("--s1"),stroke:css("--surface"),"stroke-width":1.6});
+    const hit=el("circle",{cx:X(r.survey_year),cy:Y(r.footprint_ha),r:13,
+      fill:"transparent",style:"cursor:pointer"});
+    hit.addEventListener("mousemove",e=>showTip(e,r.survey_year+" survey",[
+      ["Footprint",ha(r.footprint_ha)],
+      ["New this interval", r.new_ha!=null?ha(r.new_ha):"—"],
+      ["Annualised", r.annualised_pct_growth!=null?pct(r.annualised_pct_growth):"—"]]));
+    hit.addEventListener("mouseleave",hideTip);
+    s.appendChild(c); s.appendChild(hit);
+  });
+  host.appendChild(s);
+}
+
+/* =====================================================================
+   S3 — annualised growth, diverging by sign
+   ===================================================================== */
+function chartGrowth(host){
+  const rows = D.phases.filter(r=>inRange(r.survey_year)); host.innerHTML="";
+  if(!rows.length) return;
+  const W=720,H=300,m={t:16,r:16,b:60,l:54};
+  const s=svgRoot(W,H);
+  s.setAttribute("aria-label","Annualised growth rate by survey interval");
+  const vals=rows.map(r=>r.annualised_pct);
+  const lim=Math.max(Math.abs(Math.min(...vals)),Math.max(...vals))*1.18;
+  const bw=(W-m.l-m.r)/rows.length;
+  const Y=v=> m.t + (lim-v)/(2*lim)*(H-m.t-m.b);
+
+  for(let i=-2;i<=2;i++){ const v=lim*i/2;
+    gridline(s,m.l,Y(v),W-m.r,Y(v)); axisText(s,m.l-8,Y(v)+4,v.toFixed(0)+"%","end"); }
+  s.appendChild(el("line",{x1:m.l,y1:Y(0),x2:W-m.r,y2:Y(0),
+    stroke:css("--ink-2"),"stroke-width":1}));
+
+  rows.forEach((r,i)=>{
+    const v=r.annualised_pct, x=m.l+i*bw+bw*0.18, w=bw*0.64;
+    const y=v>=0?Y(v):Y(0), h=Math.abs(Y(v)-Y(0));
+    const rect=el("rect",{x,y,width:w,height:Math.max(h,1),rx:2,
+      fill:v>=0?css("--pos"):css("--neg"),style:"cursor:pointer"});
+    rect.addEventListener("mousemove",e=>showTip(e,
+      `${r.prior_year}–${r.survey_year} (${r.span} yr)`,[
+      ["Annualised",pct(v)],["Footprint",ha(r.footprint_ha)],
+      ["Change/yr",ha(r.abs_change_ha_per_yr)]]));
+    rect.addEventListener("mouseleave",hideTip);
+    s.appendChild(rect);
+    const t=axisText(s,x+w/2,H-m.b+16,r.survey_year,"middle",10);
+    t.setAttribute("transform",`rotate(-45 ${x+w/2} ${H-m.b+16})`);
+  });
+  host.appendChild(s);
+}
+
+/* =====================================================================
+   S4 — gross churn vs net
+   ===================================================================== */
+function chartChurn(host){
+  const rows=transRows(); host.innerHTML="";
+  if(!rows.length) return;
+  const W=720,H=320,m={t:16,r:16,b:60,l:62};
+  const s=svgRoot(W,H);
+  s.setAttribute("aria-label","Gross new planting and retirement against net change");
+  const up=Math.max(...rows.map(r=>r.new_ha));
+  const dn=Math.max(...rows.map(r=>r.retired_ha));
+  const lim=Math.max(up,dn)*1.15;
+  const bw=(W-m.l-m.r)/rows.length;
+  const Y=v=> m.t+(lim-v)/(2*lim)*(H-m.t-m.b);
+
+  for(let i=-2;i<=2;i++){ const v=lim*i/2;
+    gridline(s,m.l,Y(v),W-m.r,Y(v)); axisText(s,m.l-8,Y(v)+4,fmt(Math.abs(v)),"end"); }
+
+  rows.forEach((r,i)=>{
+    const x=m.l+i*bw+bw*0.18, w=bw*0.64;
+    const nb=el("rect",{x,y:Y(r.new_ha),width:w,height:Math.max(Y(0)-Y(r.new_ha),1),
+      rx:2,fill:css("--s1"),style:"cursor:pointer"});
+    const rb=el("rect",{x,y:Y(0),width:w,height:Math.max(Y(0)-Y(r.retired_ha),1),
+      rx:2,fill:css("--s2"),style:"cursor:pointer"});
+    const rowsTip=[["New planting",ha(r.new_ha)],["Retired",ha(r.retired_ha)],
+      ["Net",ha(r.net_change_ha)]];
+    if(r.likely_genuine_removal!=null)
+      rowsTip.push(["of which genuine",ha(r.likely_genuine_removal)]);
+    [nb,rb].forEach(b=>{
+      b.addEventListener("mousemove",e=>showTip(e,
+        `${r.prior_survey_year}–${r.survey_year}`,rowsTip));
+      b.addEventListener("mouseleave",hideTip); s.appendChild(b);
+    });
+    const t=axisText(s,x+w/2,H-m.b+16,r.survey_year,"middle",10);
+    t.setAttribute("transform",`rotate(-45 ${x+w/2} ${H-m.b+16})`);
+  });
+  s.appendChild(el("line",{x1:m.l,y1:Y(0),x2:W-m.r,y2:Y(0),
+    stroke:css("--ink-2"),"stroke-width":1}));
+  let np="";
+  rows.forEach((r,i)=> np += (np?"L":"M")+(m.l+i*bw+bw/2)+","+Y(r.net_change_ha));
+  s.appendChild(el("path",{d:np,fill:"none",stroke:css("--ink"),"stroke-width":1.7}));
+  host.appendChild(s);
+}
+
+/* =====================================================================
+   S5 — retirement bands
+   ===================================================================== */
+function chartBands(host){
+  const rows=D.bands.filter(r=>inRange(r.survey_year)); host.innerHTML="";
+  if(!rows.length){ host.innerHTML='<p class="map-note">No classification data.</p>'; return; }
+  const W=720,H=300,m={t:16,r:16,b:60,l:62};
+  const s=svgRoot(W,H);
+  s.setAttribute("aria-label","Retired land split into genuine removal, ambiguous, and measurement change");
+  const tot=rows.map(r=>r.likely_genuine_removal+r.ambiguous+r.likely_measurement_change);
+  const ymax=Math.max(...tot)*1.12;
+  const bw=(W-m.l-m.r)/rows.length;
+  const Y=v=> H-m.b - v/ymax*(H-m.t-m.b);
+
+  for(let i=0;i<=4;i++){ const v=ymax*i/4;
+    gridline(s,m.l,Y(v),W-m.r,Y(v)); axisText(s,m.l-8,Y(v)+4,fmt(v),"end"); }
+
+  rows.forEach((r,i)=>{
+    const x=m.l+i*bw+bw*0.18, w=bw*0.64;
+    const segs=[[r.likely_genuine_removal,css("--s1"),"Likely genuine removal"],
+                [r.ambiguous,css("--neutral"),"Ambiguous"],
+                [r.likely_measurement_change,css("--s2"),"Likely measurement change"]];
+    let acc=0;
+    segs.forEach(([v,col,lab])=>{
+      if(v<=0) return;
+      const y=Y(acc+v), h=Math.max(Y(acc)-Y(acc+v)-2,1); // 2px surface gap
+      const rect=el("rect",{x,y,width:w,height:h,rx:2,fill:col,style:"cursor:pointer"});
+      rect.addEventListener("mousemove",e=>showTip(e,
+        `${r.prior_survey_year}–${r.survey_year}`,[
+        [lab,ha(v,1)],["Total retired",ha(r.retired_ha_total,1)],
+        ["Measurement share",pct(r.measurement_change_pct)]]));
+      rect.addEventListener("mouseleave",hideTip);
+      s.appendChild(rect); acc+=v;
+    });
+    const t=axisText(s,x+w/2,H-m.b+16,r.survey_year,"middle",10);
+    t.setAttribute("transform",`rotate(-45 ${x+w/2} ${H-m.b+16})`);
+  });
+  host.appendChild(s);
+}
+
+/* =====================================================================
+   S6 — sub-region stacked area
+   ===================================================================== */
+function chartSub(host){
+  host.innerHTML="";
+  const yrs=[...new Set(subRows().map(r=>r.survey_year))].sort((a,b)=>a-b);
+  if(!yrs.length) return;
+  const names = state.sub==="__all__" ? SUBS : [state.sub];
+  const W=720,H=300,m={t:16,r:16,b:34,l:62};
+  const s=svgRoot(W,H);
+  s.setAttribute("aria-label","Vineyard footprint by sub-region over time");
+  const lookup={};
+  subRows().forEach(r=>{ lookup[r.survey_year+"|"+r.subregion]=r.footprint_ha||0; });
+  const totals=yrs.map(y=> names.reduce((a,n)=>a+(lookup[y+"|"+n]||0),0));
+  const ymax=Math.max(...totals)*1.12;
+  const X=v=> m.l+(v-yrs[0])/((yrs[yrs.length-1]-yrs[0])||1)*(W-m.l-m.r);
+  const Y=v=> H-m.b - v/ymax*(H-m.t-m.b);
+
+  for(let i=0;i<=4;i++){ const v=ymax*i/4;
+    gridline(s,m.l,Y(v),W-m.r,Y(v)); axisText(s,m.l-8,Y(v)+4,fmt(v),"end"); }
+  yrs.forEach(y=>{ if(yrs.length<9||y%5===0) axisText(s,X(y),H-m.b+18,y); });
+
+  const cols=[css("--s1"),css("--s2"),css("--s3")];
+  const base=yrs.map(()=>0);
+  names.forEach((n,ni)=>{
+    let top="", bot="";
+    yrs.forEach((y,i)=>{ const v=lookup[y+"|"+n]||0;
+      top += (i?"L":"M")+X(y)+","+Y(base[i]+v); });
+    for(let i=yrs.length-1;i>=0;i--) bot += "L"+X(yrs[i])+","+Y(base[i]);
+    const p=el("path",{d:top+bot+"Z",fill:cols[ni%3],stroke:css("--surface"),
+      "stroke-width":1.4,style:"cursor:pointer"});
+    p.addEventListener("mousemove",e=>{
+      const last=lookup[yrs[yrs.length-1]+"|"+n]||0;
+      showTip(e,n,[["Footprint "+yrs[yrs.length-1],ha(last)]]);
+    });
+    p.addEventListener("mouseleave",hideTip);
+    s.appendChild(p);
+    yrs.forEach((y,i)=> base[i]+=lookup[y+"|"+n]||0);
+  });
+  host.appendChild(s);
+}
+
+/* =====================================================================
+   S7 — map of new plantings
+   ===================================================================== */
+function chartMap(host){
+  host.innerHTML="";
+  const [minx,miny,maxx,maxy]=MAP.bounds;
+  const W=860, aspect=Math.cos((miny+maxy)/2*Math.PI/180);
+  const H=Math.round(W*((maxy-miny)/((maxx-minx)*aspect)));
+  const s=svgRoot(W,H); s.id="mapsvg";
+  s.setAttribute("aria-label","Map of new vineyard plantings by survey interval");
+  const X=lon=> (lon-minx)/(maxx-minx)*W;
+  const Y=lat=> H-(lat-miny)/(maxy-miny)*H;
+
+  const ivs=[...new Set(MAP.features.map(f=>f.i))].sort();
+  // sequential ramp: magnitude (time) gets one hue, light -> dark
+  const ramp=t=>{
+    const a=[214,236,248], b=[12,52,94];
+    return `rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*t)).join(",")})`;
+  };
+  let shown=0;
+  MAP.features.forEach(f=>{
+    if(!inRange(f.y)) return;
+    if(state.sub!=="__all__" && f.s!==state.sub) return;
+    shown++;
+    const t=ivs.indexOf(f.i)/Math.max(ivs.length-1,1);
+    const d=f.r.map(ring=>"M"+ring.map(p=>X(p[0]).toFixed(1)+","+Y(p[1]).toFixed(1))
+      .join("L")+"Z").join("");
+    const p=el("path",{d,fill:ramp(t),style:"cursor:pointer"});
+    p.addEventListener("mousemove",e=>showTip(e,"New planting "+f.i,
+      [["Area",ha(f.ha,2)],["Sub-region",f.s],["First seen",f.y]]));
+    p.addEventListener("mouseleave",hideTip);
+    s.appendChild(p);
+  });
+  host.appendChild(s);
+  const note=document.createElement("div");
+  note.className="map-note";
+  note.textContent=`${fmt(shown)} of ${fmt(MAP.n)} polygons shown · pieces ≥ ${MAP.min_ha} ha, `
+    +`${MAP.simplify_m} m simplify · EPSG:4326 (simplified in EPSG:2193)`;
+  host.appendChild(note);
+}
+
+/* =====================================================================
+   worksheet definitions — chart + Tableau build recipe
+   ===================================================================== */
+const SHEETS=[
+ {id:"S1",title:"Footprint growth and saturation fits",
+  caption:"Dissolved planted area per survey. The dashed curves are logistic and Gompertz fits to the post-2005 series — drawn to show the trend, not a limit.",
+  render:chartFootprint,
+  legend:[["--s1","Observed footprint"],["--s2","Logistic fit"],["--s3","Gompertz fit"]],
+  table:()=>tableFrom(yearlyRows(),
+    [["survey_year","Year"],["footprint_ha","Footprint ha"],["new_ha","New ha"],
+     ["retired_ha","Retired ha"],["annualised_pct_growth","Annualised %"]]),
+  spec:{source:"yearly_metrics.csv", mark:"Line, plus Circle on a dual-purpose detail",
+   cols:[["Columns","survey_year (Dimension, Continuous)"],
+         ["Rows","SUM(footprint_ha)"],
+         ["Colour","Measure Names — footprint vs fit_logistic_ha vs fit_gompertz_ha"],
+         ["Tooltip","survey_year, footprint_ha, new_ha, annualised_pct_growth"]],
+   calc:{name:"Annualised growth %",
+     formula:"// intervals are irregular — never compare raw period growth\n(POWER(\n  SUM([Footprint Ha]) / LOOKUP(SUM([Footprint Ha]), -1),\n  1 / (MIN([Survey Year]) - LOOKUP(MIN([Survey Year]), -1))\n) - 1) * 100"},
+   gotcha:"Do NOT add a reference line at fit_logistic_K_ha. The field fit_logistic_valid_as_limit is False — the 95% interval runs past 240,000 ha, so a capacity line would invent a limit the data does not support."},
+ },
+ {id:"S2",title:"Annualised growth rate by interval",
+  caption:"Growth per year, so a five-year gap and a one-year gap can sit on the same axis. Blue is expansion, red contraction.",
+  render:chartGrowth,
+  legend:[["--pos","Expansion"],["--neg","Contraction"]],
+  table:()=>tableFrom(D.phases.filter(r=>inRange(r.survey_year)),
+    [["prior_year","From"],["survey_year","To"],["span","Years"],
+     ["annualised_pct","Annualised %"],["abs_change_ha_per_yr","ha/yr"]]),
+  spec:{source:"yearly_metrics.csv", mark:"Bar",
+   cols:[["Columns","survey_year (Dimension, Discrete)"],
+         ["Rows","AVG(annualised_pct_growth)"],
+         ["Colour","Growth sign (calculated, below)"],
+         ["Filter","survey_year — keep the range the dashboard filter drives"]],
+   calc:{name:"Growth sign",
+     formula:"IF AVG([Annualised Pct Growth]) >= 0 THEN 'Expansion'\nELSE 'Contraction' END"},
+   gotcha:"Use annualised_pct_growth, not pct_growth. The 2013–2018 interval reads +15.3% raw but only +2.9%/yr — the raw figure is five years of growth wearing a one-year label."},
+ },
+ {id:"S3",title:"Gross planting against net change",
+  caption:"The published net series hides both sides of the churn. Gross new planting sits above the axis, retirement below, and the black line is the net the raw data reports.",
+  render:chartChurn,
+  legend:[["--s1","New planting"],["--s2","Retired"],["--ink","Net change"]],
+  table:()=>tableFrom(transRows(),
+    [["prior_survey_year","From"],["survey_year","To"],["new_ha","New ha"],
+     ["retired_ha","Retired ha"],["net_change_ha","Net ha"]]),
+  spec:{source:"transitions.csv", mark:"Bar (dual measure), Line for net",
+   cols:[["Columns","survey_year (Discrete)"],
+         ["Rows","SUM(new_ha) and -SUM(retired_ha) via Measure Values"],
+         ["Colour","Measure Names"],
+         ["Detail","prior_survey_year — keeps interval identity in the tooltip"]],
+   calc:{name:"Retired (signed for display)",
+     formula:"-SUM([Retired Ha])"},
+   gotcha:"Label the retired measure “Retired (see classification)”, never “vines removed”. Check the retired_classified field: the split into genuine removal vs re-digitisation is a modelling choice, not a measurement."},
+ },
+ {id:"S4",title:"Retired land: removal or re-drawn boundary?",
+  caption:"Retired area split by how much of each polygon survives eroding the prior footprint by 10 m. Thin rims against a surviving edge read as re-digitisation; compact interior blocks read as real removal.",
+  render:chartBands,
+  legend:[["--s1","Likely genuine removal"],["--neutral","Ambiguous"],
+          ["--s2","Likely measurement change"]],
+  table:()=>tableFrom(D.bands.filter(r=>inRange(r.survey_year)),
+    [["prior_survey_year","From"],["survey_year","To"],
+     ["likely_genuine_removal","Genuine ha"],["ambiguous","Ambiguous ha"],
+     ["likely_measurement_change","Measurement ha"],
+     ["measurement_change_pct","Measurement %"]]),
+  spec:{source:"transitions.csv (forensics columns merged in)",
+   mark:"Bar, stacked",
+   cols:[["Columns","survey_year (Discrete)"],
+         ["Rows","Measure Values — genuine / ambiguous / measurement"],
+         ["Colour","Measure Names, fixed order so bands never re-map"],
+         ["Tooltip","measurement_change_pct"]],
+   calc:{name:"Genuine share of retired",
+     formula:"SUM([Likely Genuine Removal]) / SUM([Retired Ha Total])"},
+   gotcha:"The split is highly threshold-sensitive: 86% genuine at a 5 m erosion, 38% at 40 m. Put that sentence in the worksheet caption — a stacked bar reads as settled fact unless the caption says otherwise."},
+ },
+ {id:"S5",title:"Footprint by sub-region",
+  caption:"Wairau and the Southern Valleys against the Awatere. DBSCAN recovers the gap the Wither Hills create, but cannot split Wairau proper from the Southern Valleys.",
+  render:chartSub,
+  legend:[["--s1","Wairau / Southern Valleys"],["--s2","Awatere Valley"],
+          ["--s3","Other / minor pocket"]],
+  table:()=>tableFrom(subRows(),
+    [["survey_year","Year"],["subregion","Sub-region"],["footprint_ha","Footprint ha"],
+     ["new_ha","New ha"],["share_of_new_pct","Share of new %"]]),
+  spec:{source:"subregion_metrics.csv", mark:"Area (continuous)",
+   cols:[["Columns","survey_year (Continuous)"],
+         ["Rows","SUM(footprint_ha)"],
+         ["Colour","subregion — assign hues explicitly, never let Tableau cycle"],
+         ["Filter","subregion, shown as a dashboard control"]],
+   calc:{name:"Sub-region share of new planting",
+     formula:"SUM([New Ha]) / TOTAL(SUM([New Ha]))"},
+   gotcha:"Caption the sheet “sub-regions are algorithmically derived”. They come from density clustering on parcel centroids, not from an official viticultural boundary layer."},
+ },
+ {id:"S6",title:"Where the growth actually happened",
+  caption:"Every polygon is land planted between one survey and the next, shaded from the earliest interval to the most recent. This is the layer the parcel snapshots cannot show.",
+  render:chartMap,
+  legend:[],
+  table:()=>null,
+  spec:{source:"new_plantings.geojson", mark:"Map (Polygon)",
+   cols:[["Detail","interval, then subregion"],
+         ["Colour","survey_year — sequential, one hue light to dark"],
+         ["Size","piece_ha (optional, if using centroids instead)"],
+         ["Filter","interval — drive from the dashboard year control"]],
+   calc:{name:"Interval label",
+     formula:"STR([Prior Survey Year]) + '–' + STR([Survey Year])"},
+   gotcha:"Open the .geojson with Connect → Spatial file, not Text file. Tableau Public slows badly past ~10 MB of spatial data — this export is 2.8 MB because pieces under 0.5 ha were dropped (88% of features, 2.7% of the area). Do not join it to the CSVs on survey_year with a blend; use a relationship, or the polygon counts will multiply."},
+ },
+];
+
+function tableFrom(rows, cols){
+  if(!rows || !rows.length) return null;
+  const t=document.createElement("table");
+  t.innerHTML="<thead><tr>"+cols.map(c=>"<th>"+c[1]+"</th>").join("")+"</tr></thead>"
+    +"<tbody>"+rows.map(r=>"<tr>"+cols.map(c=>{
+      const v=r[c[0]];
+      return "<td>"+(typeof v==="number" ? fmt(v, Math.abs(v)<100?2:0) : (v??"—"))+"</td>";
+    }).join("")+"</tr>").join("")+"</tbody>";
+  return t;
+}
+
+/* ---------- render shell ---------- */
+function renderKPIs(){
+  const k=D.kpi, host=document.getElementById("kpis");
+  const items=[
+    ["Footprint 2025", ha(k.footprint_2025), fmt(k.n_surveys)+" surveys since 2000"],
+    ["Growth", k.growth_x.toFixed(1)+"×", "from "+ha(k.footprint_2000)+" in 2000"],
+    ["Gross new planted", ha(k.gross_new), "against "+ha(k.net_change)+" net"],
+    ["Gross retired", ha(k.gross_retired), k.genuine_removal!=null
+      ? ha(k.genuine_removal)+" likely genuine" : "classification pending"],
+    ["Churn ratio", k.churn_ratio.toFixed(2)+"×", "gross new ÷ net change"],
+    ["Carrying capacity", k.k_identified ? "identified" : "not identified",
+      k.k_identified ? "" : "interval too wide to call a limit", !k.k_identified],
+  ];
+  host.innerHTML=items.map(([l,v,n,flag])=>
+    `<div class="kpi${flag?" flagged":""}"><div class="k-label">${l}</div>`+
+    `<div class="k-val">${v}</div><div class="k-note">${n}</div></div>`).join("");
+}
+
+function renderSheets(){
+  const host=document.getElementById("sheets");
+  host.innerHTML = SHEETS.map(sh=>`
+    <section class="ws" id="ws-${sh.id}">
+      <div>
+        <div class="ws-id">WORKSHEET ${sh.id}</div>
+        <h2>${sh.title}</h2>
+        <p class="caption">${sh.caption}</p>
+        <div class="chart-frame"><div class="chart-host" data-id="${sh.id}"></div></div>
+        ${sh.legend.length?`<div class="legend">${sh.legend.map(([tok,lab])=>
+          `<span><i class="swatch" style="background:var(${tok})"></i>${lab}</span>`).join("")}</div>`:""}
+        <div class="tablewrap" data-table="${sh.id}" hidden></div>
+      </div>
+      <div class="spec" data-spec="${sh.id}">
+        <button class="spec-toggle" aria-expanded="true" data-toggle="${sh.id}">
+          <span>Build this in Tableau</span><span class="chev">▸</span>
+        </button>
+        <div class="spec-body" data-body="${sh.id}">
+          <dl style="margin:0">
+            <div class="spec-row"><dt>Source</dt><dd><span class="pill dim">${sh.spec.source}</span></dd></div>
+            <div class="spec-row"><dt>Mark</dt><dd>${sh.spec.mark}</dd></div>
+            ${sh.spec.cols.map(([shelf,val])=>
+              `<div class="spec-row"><dt>${shelf}</dt><dd>${
+                val.split(/(?<=\))\s+and\s+|,\s(?=[A-Z])/).map(v=>
+                `<span class="pill">${v}</span>`).join("")}</dd></div>`).join("")}
+            <div class="spec-row"><dt>Calc</dt><dd><b>${sh.spec.calc.name}</b>
+              <pre class="calc">${sh.spec.calc.formula.replace(/</g,"&lt;")}</pre></dd></div>
+          </dl>
+          <div class="gotcha"><b>Watch out —</b> ${sh.spec.gotcha}</div>
+        </div>
+      </div>
+    </section>`).join("");
+}
+
+function renderCaveats(){
+  const cav=[
+    ["No parcel identity across years","Each survey is an independent polygon snapshot. Change is recovered by set operations on geometry, not by tracking parcels — so no survival analysis and no “this vineyard grew”."],
+    ["Only four source fields","FID, Year, MidYearDate, AreaHectares. No variety, owner, producer or yield exists anywhere in this data. MidYearDate is always 1 July — synthetic, never a time axis."],
+    ["n = 18 surveys","That is the entire sample for any time-series fit. 59,099 parcels buy no extra statistical power, and residuals are autocorrelated, so model comparisons are weaker than they look."],
+    ["Irregular intervals","Gaps at 2013–2018 and 2018–2020. Growth resumed somewhere inside the first gap — the 2018 survey is the first observation of it, not its start date."],
+    ["Parcel size is a diagnostic","Mean size falls 27 → 6.5 ha across the series. That is finer polygon capture in later surveys, not vineyards being subdivided."],
+    ["Sub-regions are derived","DBSCAN on parcel centroids in EPSG:2193, labelled by proximity to known anchors. Not an official viticultural boundary."],
+  ];
+  document.getElementById("caveats").innerHTML=cav.map(([h,p])=>
+    `<div class="cav"><h3>${h}</h3><p>${p}</p></div>`).join("");
+  const dn=D.fits.do_not_claim||[];
+  document.getElementById("donot").innerHTML=
+    `<h3>Do not claim from this dashboard</h3><ul>`+
+    (dn.length?dn:["a carrying capacity","a cause for any change"])
+      .map(x=>`<li>${x}</li>`).join("")+`</ul>`;
+}
+
+function renderCharts(){
+  SHEETS.forEach(sh=>{
+    const host=document.querySelector(`.chart-host[data-id="${sh.id}"]`);
+    if(host) sh.render(host);
+    const tw=document.querySelector(`[data-table="${sh.id}"]`);
+    if(tw){ tw.innerHTML=""; const t=sh.table();
+      if(t) tw.appendChild(t);
+      tw.hidden = !state.tables || !t; }
+  });
+}
+
+/* ---------- controls ---------- */
+function initControls(){
+  const from=document.getElementById("fromYear"), to=document.getElementById("toYear");
+  YEARS.forEach(y=>{
+    from.add(new Option(y,y)); to.add(new Option(y,y));
+  });
+  from.value=state.from; to.value=state.to;
+  const sr=document.getElementById("subregion");
+  sr.add(new Option("All sub-regions","__all__"));
+  SUBS.forEach(s=>sr.add(new Option(s.replace(" / Southern Valleys",""),s)));
+
+  from.addEventListener("change",()=>{
+    state.from=+from.value;
+    if(state.from>state.to){ state.to=state.from; to.value=state.to; }
+    renderCharts();
+  });
+  to.addEventListener("change",()=>{
+    state.to=+to.value;
+    if(state.to<state.from){ state.from=state.to; from.value=state.from; }
+    renderCharts();
+  });
+  sr.addEventListener("change",()=>{ state.sub=sr.value; renderCharts(); });
+
+  const tt=document.getElementById("tableToggle");
+  tt.addEventListener("click",()=>{
+    state.tables=!state.tables;
+    tt.setAttribute("aria-pressed",state.tables);
+    tt.textContent = state.tables ? "Hide data tables" : "Show data tables";
+    renderCharts();
+  });
+  const st=document.getElementById("specToggle");
+  st.addEventListener("click",()=>{
+    state.specs=!state.specs;
+    st.setAttribute("aria-pressed",state.specs);
+    document.querySelectorAll("[data-body]").forEach(b=> b.hidden=!state.specs);
+    document.querySelectorAll("[data-toggle]").forEach(b=>
+      b.setAttribute("aria-expanded",state.specs));
+  });
+  document.addEventListener("click",e=>{
+    const btn=e.target.closest("[data-toggle]");
+    if(!btn) return;
+    const body=document.querySelector(`[data-body="${btn.dataset.toggle}"]`);
+    const open=body.hidden;
+    body.hidden=!open;
+    btn.setAttribute("aria-expanded",open);
+  });
+  document.getElementById("themeToggle").addEventListener("click",()=>{
+    const cur=document.documentElement.getAttribute("data-theme");
+    const next = cur==="dark" ? "light" : cur==="light" ? "dark"
+      : (matchMedia("(prefers-color-scheme: dark)").matches ? "light" : "dark");
+    document.documentElement.setAttribute("data-theme",next);
+    renderCharts();
+  });
+}
+
+/* ---------- go ---------- */
+const b=MAP.bounds;
+document.getElementById("coords").innerHTML =
+  `${b[1].toFixed(3)}°S – ${b[3].toFixed(3)}°S<br>`+
+  `${b[0].toFixed(3)}°E – ${b[2].toFixed(3)}°E<br>`+
+  `EPSG:2193 · NZTM2000`;
+renderKPIs(); renderSheets(); renderCaveats(); initControls(); renderCharts();
+addEventListener("resize", ()=>{ clearTimeout(window.__rz);
+  window.__rz=setTimeout(renderCharts,150); });
+})();
+</script>
+</body>
+</html>

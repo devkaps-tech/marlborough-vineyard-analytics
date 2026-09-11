@@ -58,6 +58,18 @@ PLACEHOLDER_MARKERS = ["YOUR-PASSWORD", "project-ref", "your-password", "xxxx", 
 # always means a data file or binary slipped past .gitignore.
 MAX_TRACKED_FILE_KB = 512
 
+# Deliberate exceptions, each with the reason it earns its size. Keep this list
+# short and argued -- it is the pressure valve that stops the cap above being
+# quietly raised, which would defeat the check entirely.
+LARGE_FILE_EXCEPTIONS = {
+    "dashboard.html": (
+        "generated deliverable carrying ~2,900 inlined map polygons. Committed "
+        "because data/ is not, so a visitor to the public repo cannot rebuild it "
+        "by running src/10_build_dashboard.py"
+    ),
+}
+MAX_EXCEPTION_FILE_KB = 2048
+
 
 def _is_placeholder(line: str) -> bool:
     return any(m in line for m in PLACEHOLDER_MARKERS)
@@ -111,11 +123,16 @@ def test_no_oversized_tracked_files():
         if not f:
             continue
         p = BASE_DIR / f
-        if p.exists() and p.stat().st_size > MAX_TRACKED_FILE_KB * 1024:
-            oversized.append(f"{f} ({p.stat().st_size / 1024:.0f} KB)")
+        if not p.exists():
+            continue
+        kb = p.stat().st_size / 1024
+        cap = MAX_EXCEPTION_FILE_KB if f in LARGE_FILE_EXCEPTIONS else MAX_TRACKED_FILE_KB
+        if kb > cap:
+            oversized.append(f"{f} ({kb:.0f} KB, cap {cap} KB)")
     assert not oversized, (
-        f"tracked files exceed {MAX_TRACKED_FILE_KB} KB: {oversized}. "
-        f"This repo holds source only."
+        f"tracked files over their size cap: {oversized}. This repo holds source "
+        f"only -- add a documented entry to LARGE_FILE_EXCEPTIONS if a generated "
+        f"deliverable genuinely has to ship."
     )
 
 

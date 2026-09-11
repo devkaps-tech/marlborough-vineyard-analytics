@@ -1,6 +1,9 @@
-# Plan of Action — resume point
+# Plan of Action — COMPLETE
 
-**Checkpoint taken:** 2026-09-11, after Phase 2 (spatial overlay) verified green.
+> All phases delivered. Kept as the project's working log: it records the two
+> premises that failed and why, which is the part worth preserving.
+
+**Last updated:** 2026-09-11, after the dashboard and case study landed.
 **Full original plan:** `~/.claude/plans/draft-a-plan-of-fuzzy-reef.md`
 
 Goal: Tableau Public dashboard + statistically defensible case study from the Marlborough
@@ -66,8 +69,9 @@ headline finding. Report it as one line: the dissolve confirms the published are
 
 The net series — the only thing the published data shows — hides ~8,000 ha of land leaving
 production. Several intervals are dominated by retirement: 2010→11 retired **403%** of what it
-gained, 2011→12 **199%**. That aligns with the post-GFC NZ wine glut, which is a real and
-tellable story.
+gained, 2011→12 **199%**. This *coincides with* the post-GFC NZ wine glut — but the dataset holds
+no price, weather or planting-intent variable, so the report states the coincidence and stops
+short of causation.
 
 **Sliver robustness: checked, and the numbers hold.** 90% of the 35,595 new-planting pieces are
 under 1 ha, but they carry only **4.1%** of the area; pieces under 0.01 ha are 53% of the count
@@ -77,18 +81,25 @@ conclusions. It does mean the map layer should drop sub-hectare pieces — 90% f
 
 ---
 
-## Open question that must be settled before the report makes claims
+## ~~Open question~~ — SETTLED, as a band rather than a number
 
-**Is `retired_ha` genuine vine removal, or re-digitisation boundary shift?** The sliver check rules
-out *small* noise, but a survey that re-drew block boundaries at finer resolution could move whole
-hectares without a vine being pulled. The suspicious intervals (2006→08, 2011→12, 2022→23) are
-exactly where mean parcel size drops, which is the digitisation-change signature.
+**Is `retired_ha` genuine vine removal, or re-digitisation boundary shift?** Answered by
+`src/09_retirement_forensics.py`, which erodes the prior footprint and measures what fraction of
+each retired piece survives — a thin rim against a surviving edge reads as boundary shift, a
+compact interior block as real removal.
 
-Plan: for each retired polygon, measure whether it is a compact standalone block (likely genuine
-removal) or a thin fringe adjacent to a surviving footprint (likely boundary shift) — e.g. by
-comparing perimeter²/area against the retired area, or by testing what survives a ±20 m buffer
-erosion of the prior footprint. Report gross churn with an explicit "of which, plausibly
-measurement change" band rather than asserting 7,999 ha of vine removal.
+At a 10 m threshold: **6,201 ha (77.5%) likely genuine removal, 877 ha (11.0%) likely measurement
+change, 920 ha (11.5%) ambiguous.** A shape signal agrees independently (measurement-change median
+piece 0.008 ha, compactness 0.105; genuine 0.373 ha, 0.308).
+
+**The threshold sensitivity is the real finding.** 86% genuine at 5 m, 38% at 40 m, and it never
+stabilises — so this is a modelling choice, not a measurement, and every quote of it must carry the
+band and the threshold. The reappearance cross-check was inconclusive (replanting takes longer than
+one survey gap).
+
+What survives: the 2011–12 contraction is real — 862 ha genuine after removing 382 ha of noise,
+against 170 ha and 4.5 ha either side. 2008→09 and 2010→11 are NOT explained by measurement noise
+(<1% each); their high retired/new ratios come from suppressed new planting, not inflated retirement.
 
 **~~Minor reconciliation item~~ — RESOLVED, and it was a bug, not a rounding gap.** The
 per-subregion series came to 36,842 ha against 37,630 ha nationally. The invariant suite localised
@@ -106,10 +117,10 @@ accumulation across three independent set-operation chains.
 
 ## Verification and review infrastructure (added)
 
-**`tests/test_invariants.py`** — 19 deterministic checks. Runs standalone
-(`python3 tests/test_invariants.py`, no pytest needed) or under pytest if installed. Currently
-**15 pass, 4 skip** (Tableau exports and `model_fits.json` don't exist yet; they skip rather than
-fail, so the suite is useful from this checkpoint onward).
+**`tests/test_invariants.py`** — 20 deterministic checks, plus 9 in
+`tests/test_repo_hygiene.py`. Both run standalone (no pytest needed) or under pytest if installed.
+All green; the one skip is the editorial vine-removal guard, which correctly stands down now that
+the forensics classification exists.
 
 Covers: overlay area conservation both directions · footprint ≤ naive sum · sub-region/national
 reconciliation · interval chaining and annualisation arithmetic · CRS correctness (parcels in
@@ -189,7 +200,7 @@ keep heavy intermediate output out of the main context.
 ## How to resume
 
 ```bash
-cd /Users/home/Documents/Marlborough-Vineyard/vineyard-analytics-project
+cd path/to/marlborough-vineyard-analytics
 python3 src/run_pipeline.py          # NOTE: not yet written -- see below
 ```
 

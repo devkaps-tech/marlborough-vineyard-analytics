@@ -34,6 +34,8 @@ TRANSITIONS = PROCESSED_DIR / "transitions.csv"
 TRANSITIONS_SUBREGION = PROCESSED_DIR / "transitions_by_subregion.csv"
 NEW_PLANTINGS_GEO = PROCESSED_DIR / "new_plantings.parquet"
 MODEL_FITS = STATS_DIR / "model_fits.json"
+RETIRED_PIECES_GEO = STATS_DIR / "retired_pieces.parquet"
+RETIREMENT_CLASSIFICATION = STATS_DIR / "retirement_classification.csv"
 
 # --- coordinate reference systems ----------------------------------------
 # 4326 (WGS84) for interoperability: Tableau, PostGIS, web maps.

@@ -10,6 +10,7 @@ Usage:
     python3 src/04_load_to_supabase.py
 """
 import os
+import sys
 from pathlib import Path
 
 import geopandas as gpd
@@ -17,8 +18,17 @@ import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-PROCESSED_DIR = BASE_DIR / "data" / "processed"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from config import (  # noqa: E402
+    BASE_DIR,
+    FOOTPRINT_BY_YEAR,
+    PARCELS_ENRICHED,
+    PROCESSED_DIR,
+    SUBREGION_SUMMARY,
+    TRANSITIONS,
+    YEARLY_SUMMARY,
+    require,
+)
 
 load_dotenv(BASE_DIR / ".env")
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -44,7 +54,8 @@ def apply_schema(engine):
 
 
 def load_parcels(engine):
-    gdf = gpd.read_parquet(PROCESSED_DIR / "vineyard_parcels.parquet")
+    require(PARCELS_ENRICHED)
+    gdf = gpd.read_parquet(PARCELS_ENRICHED)
     gdf = gdf.rename(columns={"geometry": "geom"}).set_geometry("geom")
     # cast to the schema's declared type
     gdf["survey_date"] = pd.to_datetime(gdf["survey_date"]).dt.date
@@ -54,13 +65,28 @@ def load_parcels(engine):
 
 
 def load_summary_tables(engine):
-    yearly = pd.read_csv(PROCESSED_DIR / "yearly_summary.csv")
+    yearly = pd.read_csv(YEARLY_SUMMARY)
     yearly.to_sql("yearly_summary", engine, if_exists="append", index=False)
     print(f"Loaded {len(yearly)} rows into yearly_summary.")
 
-    subregion = pd.read_csv(PROCESSED_DIR / "subregion_summary.csv")
+    subregion = pd.read_csv(SUBREGION_SUMMARY)
     subregion.to_sql("subregion_summary", engine, if_exists="append", index=False)
     print(f"Loaded {len(subregion)} rows into subregion_summary.")
+
+    # step-05 outputs: the overlay-derived footprint and churn series
+    footprint = pd.read_csv(FOOTPRINT_BY_YEAR)
+    footprint.to_sql("footprint_by_year", engine, if_exists="append", index=False)
+    print(f"Loaded {len(footprint)} rows into footprint_by_year.")
+
+    transitions = pd.read_csv(TRANSITIONS)
+    # keep only the columns the table declares; the forensics merge adds more
+    cols = ["prior_survey_year", "survey_year", "years_in_interval",
+            "footprint_prior_ha", "footprint_ha", "new_ha", "retired_ha",
+            "persisting_ha", "net_change_ha", "new_ha_per_year",
+            "retired_ha_per_year", "annualised_pct_growth"]
+    transitions[[c for c in cols if c in transitions.columns]].to_sql(
+        "transitions", engine, if_exists="append", index=False)
+    print(f"Loaded {len(transitions)} rows into transitions.")
 
 
 def main():
@@ -69,7 +95,8 @@ def main():
 
     with engine.begin() as conn:
         # idempotent re-runs: clear existing rows before reloading
-        conn.execute(text("truncate vineyard_parcels, yearly_summary, subregion_summary"))
+        conn.execute(text("truncate vineyard_parcels, yearly_summary, "
+                          "subregion_summary, footprint_by_year, transitions"))
 
     load_parcels(engine)
     load_summary_tables(engine)
