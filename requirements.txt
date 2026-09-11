@@ -1,0 +1,11 @@
+geopandas==1.1.4
+pyogrio==0.13.0
+shapely==2.1.2
+pyproj==3.7.1
+pandas>=2.0.0
+pyarrow>=14.0.0
+scikit-learn
+psycopg2-binary
+sqlalchemy
+geoalchemy2
+python-dotenv
