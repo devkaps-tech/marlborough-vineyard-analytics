@@ -135,3 +135,31 @@ Both enforce token discipline: never load `parcels_enriched.parquet` (15 MB),
 - `.env` holds a live Supabase `DATABASE_URL`, correctly gitignored and verified absent from
   history. It sat in plaintext, so **rotate that password**.
 - `notebooks/` is empty. `sql/schema.sql` has no tables for the step-05 outputs.
+
+## Repo hygiene (public repository)
+
+```bash
+python3 tests/test_repo_hygiene.py   # 9 checks, runs against FULL commit history
+```
+
+The repo is public at `github.com/devkaps-tech/marlborough-vineyard-analytics`. Checks run over
+`git rev-list --all`, not just the working tree — a secret removed in a later commit is still
+published in the earlier one.
+
+Optional pre-push guard (blocks on hygiene failure, warns on invariant failure):
+
+```bash
+ln -s ../../tests/pre-push-hook.sh .git/hooks/pre-push   # bypass once: git push --no-verify
+```
+
+`.gitignore` uses `data/*` plus `!data/README.md`, and that ordering is load-bearing — reverting
+it to `data/` silently re-excludes the README, because git cannot un-ignore a file inside an
+excluded directory. `test_data_readme_survives_the_data_exclusion` guards it.
+
+Shared test plumbing lives in `tests/_harness.py` (skip/need/runner), so both suites run
+standalone without pytest and still collect under it.
+
+**`repo-auditor`** (sonnet, read-only) handles the judgement half: semantic leaks a regex can't
+match, docs contradicting code, broken-but-shipped code, commit-message quality. It is barred from
+every state-changing git command and has no write tools — it describes fixes for the main session
+to apply, because history rewriting on a published repo is irreversible.

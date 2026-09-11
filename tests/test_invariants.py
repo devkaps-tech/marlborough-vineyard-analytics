@@ -27,31 +27,10 @@ from pathlib import Path
 
 import pandas as pd
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-import config  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _harness import need, run_tests, skip  # noqa: E402
 
-# --- skip plumbing that works with or without pytest ----------------------
-try:
-    from pytest import skip as _pytest_skip
-except ImportError:  # pragma: no cover
-    _pytest_skip = None
-
-
-class Skipped(Exception):
-    """Raised when a check's inputs don't exist yet."""
-
-
-def skip(reason: str):
-    if _pytest_skip is not None:
-        _pytest_skip(reason)
-    raise Skipped(reason)
-
-
-def need(*paths: Path):
-    """Skip (not fail) when an artifact hasn't been generated yet."""
-    for p in paths:
-        if not p.exists():
-            skip(f"{p.relative_to(config.BASE_DIR)} not generated yet")
+import config  # noqa: E402  (_harness puts src/ on the path)
 
 
 # Areas come from floating-point set operations on tens of thousands of
@@ -419,44 +398,5 @@ def test_model_fits_json_is_wellformed_if_present():
             )
 
 
-# =========================================================================
-# Standalone runner (so the suite works without pytest installed)
-# =========================================================================
-
-def _main() -> int:
-    tests = [(n, f) for n, f in sorted(globals().items())
-             if n.startswith("test_") and callable(f)]
-    passed = failed = skipped = 0
-    failures = []
-
-    print(f"Running {len(tests)} invariant checks\n")
-    for name, fn in tests:
-        try:
-            fn()
-        except Skipped as e:
-            print(f"  SKIP  {name}\n          ({e})")
-            skipped += 1
-        except AssertionError as e:
-            print(f"  FAIL  {name}")
-            failures.append((name, str(e)))
-            failed += 1
-        except Exception as e:  # noqa: BLE001 - report, don't mask
-            print(f"  ERROR {name}: {type(e).__name__}: {e}")
-            failures.append((name, f"{type(e).__name__}: {e}"))
-            failed += 1
-        else:
-            print(f"  ok    {name}")
-            passed += 1
-
-    if failures:
-        print("\n" + "=" * 70)
-        for name, msg in failures:
-            print(f"\n{name}:\n  {msg}")
-
-    print("\n" + "=" * 70)
-    print(f"{passed} passed, {failed} failed, {skipped} skipped")
-    return 1 if failed else 0
-
-
 if __name__ == "__main__":
-    sys.exit(_main())
+    sys.exit(run_tests(globals(), "Pipeline invariants"))
