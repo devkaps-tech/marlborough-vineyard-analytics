@@ -1,11 +1,30 @@
+# Geospatial core -- pinned, since geometry behaviour across versions is what
+# the overlay's area-conservation assertions depend on.
 geopandas==1.1.4
 pyogrio==0.13.0
 shapely==2.1.2
 pyproj==3.7.1
+
+# Data handling
 pandas>=2.0.0
 pyarrow>=14.0.0
-scikit-learn
+
+# Analysis
+scikit-learn        # DBSCAN sub-region clustering (step 03)
+scipy               # curve_fit for the saturation models (step 06); also a
+                    # scikit-learn dependency, but declared because we use it directly
+matplotlib          # report figures (step 08) -- NOT YET INSTALLED
+
+# Warehouse loading (step 04; optional -- Tableau Public reads files, not Postgres)
 psycopg2-binary
 sqlalchemy
 geoalchemy2
 python-dotenv
+
+# Optional: tests/test_invariants.py runs standalone with `python3`, and uses
+# pytest only if it happens to be installed.
+# pytest
+
+# Optional: Tableau Hyper extracts (step 07). May not support Python 3.13 --
+# CSV + GeoJSON is a sufficient Tableau Public path, so this is not required.
+# tableauhyperapi

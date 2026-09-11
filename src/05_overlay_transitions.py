@@ -33,6 +33,7 @@ from pathlib import Path
 import geopandas as gpd
 import pandas as pd
 from shapely import make_valid, union_all
+from shapely.geometry import Polygon
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import (  # noqa: E402
@@ -47,6 +48,8 @@ from config import (  # noqa: E402
 )
 
 M2_PER_HA = 10_000.0
+# Stands in for a sub-region's footprint in years where it has no parcels.
+EMPTY_GEOM = Polygon()
 # Area-conservation assertions are checked to 0.01 ha (100 m^2) absolute.
 # Floating-point set operations on thousands of polygons will not close exactly.
 AREA_TOL_HA = 0.01
@@ -187,11 +190,18 @@ def main():
     sub_footprints = dissolve_footprints(gdf, ["subregion", "survey_year"])
     sub_frames, sub_geoms = [], []
     for sub in sorted(gdf["subregion"].unique()):
-        sub_years = [y for y in years if (sub, y) in sub_footprints]
-        if len(sub_years) < 2:
-            continue
-        fp = {y: sub_footprints[(sub, y)] for y in sub_years}
-        frame, geoms = transitions_for(fp, sub_years, label=sub)
+        # Every sub-region is differenced across the FULL year list, with an
+        # empty footprint standing in for years where it has no parcels.
+        #
+        # Restricting to the years a sub-region actually appears in would drop
+        # its first appearance entirely -- there'd be no prior footprint to
+        # difference against, so the land would never be counted as new. That
+        # silently lost 684 ha for Awatere in 2002 and 104 ha for the minor
+        # pockets in 2005, and made the per-region series fail to sum to the
+        # national one. Differencing against empty attributes a first
+        # appearance wholly to new land, which is what actually happened.
+        fp = {y: sub_footprints.get((sub, y), EMPTY_GEOM) for y in years}
+        frame, geoms = transitions_for(fp, years, label=sub)
         sub_frames.append(frame)
         sub_geoms.extend(geoms)
 

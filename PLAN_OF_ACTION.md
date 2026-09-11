@@ -48,7 +48,7 @@ District Council vineyard aerial survey (2000–2025, 18 surveys, 59,099 parcel-
 
 **The intra-year double-counting premise was WRONG.** I expected the dissolved footprint to come
 in well below the naive sum-of-parcels. Maximum overlap across all 18 years is **0.31 ha out of
-32,792 ha (0.0009%)** — floating-point noise. The source polygons are topologically clean and
+32,793 ha (0.0009%)** — floating-point noise. The source polygons are topologically clean and
 effectively non-overlapping within a year, so `footprint_ha ≈ naive_sum_ha` and
 `net_change_ha == naive_net_change_ha` exactly.
 
@@ -90,10 +90,54 @@ comparing perimeter²/area against the retired area, or by testing what survives
 erosion of the prior footprint. Report gross churn with an explicit "of which, plausibly
 measurement change" band rather than asserting 7,999 ha of vine removal.
 
-**Minor reconciliation item:** per-subregion new-planting pieces total 36,842 ha vs 37,630 ha for
-the national overlay. The ~788 ha gap is because a sub-region's series starts at its own first
-appearance (Awatere has no 2000 footprint, so 2000→2002 Awatere gains aren't counted). Explainable,
-but confirm before quoting either number.
+**~~Minor reconciliation item~~ — RESOLVED, and it was a bug, not a rounding gap.** The
+per-subregion series came to 36,842 ha against 37,630 ha nationally. The invariant suite localised
+the 788 ha: sub-regions were differenced only across the years they appear in, so each one's
+**first appearance was never counted as new land** — 683.79 ha for Awatere in 2002 and 104.35 ha
+for the minor pockets in 2005, matching the shortfall exactly. A dashboard filtered to Awatere
+would have shown zero new hectares in 2002 despite 684 ha appearing.
+
+Fixed in `src/05_overlay_transitions.py`: every sub-region is now differenced across the full year
+list with an empty footprint standing in for absent years, so a first appearance is attributed
+wholly to new land. The two series now reconcile to 0.026 ha (0.00007%) — genuine floating-point
+accumulation across three independent set-operation chains.
+
+---
+
+## Verification and review infrastructure (added)
+
+**`tests/test_invariants.py`** — 19 deterministic checks. Runs standalone
+(`python3 tests/test_invariants.py`, no pytest needed) or under pytest if installed. Currently
+**15 pass, 4 skip** (Tableau exports and `model_fits.json` don't exist yet; they skip rather than
+fail, so the suite is useful from this checkpoint onward).
+
+Covers: overlay area conservation both directions · footprint ≤ naive sum · sub-region/national
+reconciliation · interval chaining and annualisation arithmetic · CRS correctness (parcels in
+4326, areas in 2193) · geometry validity and `parcel_id` uniqueness · regression baselines
+(18 survey years, 59,099 parcels, 2025 footprint) · Tableau export size and simplification
+fidelity · and a document fact-check that every headline figure quoted in the markdown matches
+what the pipeline computed.
+
+It found two real problems on first run: the 788 ha first-appearance bug above, and a rounding
+error in this very file (32,792 where 32,792.56 rounds to 32,793).
+
+One guard is deliberately editorial: `test_documents_do_not_claim_retired_land_is_vine_removal`
+fails the build if any doc calls retired area "vines removed/pulled/grubbed" before
+`digitisation-forensics` has established the split. It auto-disables once
+`stats/retirement_classification.csv` exists.
+
+**`.claude/agents/digitisation-forensics.md`** (sonnet) — owns the retired-land question. Writes
+`src/09_retirement_forensics.py`, caches classified pieces, returns a banded split with threshold
+sensitivity. Tooled for read/write/bash; barred from touching the report, exports, or steps 01–05.
+
+**`.claude/agents/stats-reviewer.md`** (opus) — adversarial audit of every statistical claim before
+publication. Read-only by design: no write tools, so it reports rather than quietly "fixing"
+numbers. Carries the n=18 / irregular-interval / synthetic-date constraints and a seven-point
+audit checklist.
+
+Both agent specs carry explicit token discipline (never load the 15 MB parquet or the 59k-row CSV;
+never re-run steps 02/03/05; print aggregates only) because the whole point of delegating is to
+keep heavy intermediate output out of the main context.
 
 ---
 
@@ -161,4 +205,4 @@ python3 src/05_overlay_transitions.py   # -> footprint/transitions/new_plantings
 
 Verification that must keep passing: the area-conservation assertions in `05` (they are live
 `assert`s, so the script fails loudly), dissolved footprint ≤ naive sum every year, and 2025
-footprint ≈ 32,792 ha.
+footprint ≈ 32,793 ha.
